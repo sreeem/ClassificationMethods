@@ -1,6 +1,6 @@
 # ClassificationMethods
 
-In this project I was provided a dataset with information on the admissions decision for graduate students in the Business School. 
+In this project I was provided a dataset with information on the admissions decision for graduate students in the Business School. This was done for a class final.
 
 There is a total of 85 observations(each one representing a student) and three predictors. 
 - Two quantitative predictors (GPA, GMAT)
