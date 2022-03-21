@@ -1,0 +1,256 @@
+---
+title: "Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+rm(list=ls()) 
+
+
+#######PRE STEPS######
+```{r message=FALSE, warning=FALSE}
+#load the data
+admissions <- read.csv("C:\\Users\\User\\Documents\\PSU\\WINTER 2022\\STAT 387\\FINAL PROJECT\\admission.csv")
+#three columns(predictors) and 85 rows(observations)
+#two of the predictors are quantitative data and one is qualitative(categorical, split into three options)
+#need to factor the categorical data, so that R treats it as truly categorical
+#admissions$De<-as.factor(admissions$De)
+str(admissions)
+#what I first need to do is split the data into test and training sets
+####YES THIS ONE WORKS PERFECT#### it takes five from each group as test and rest is train...
+
+
+test.index <- c(2:6,33:37,61:65)
+train.data[-51,]#this is the "outlier"
+test.x <- data.frame(cbind(admissions$GPA,admissions$GMAT))[test.index,] #pred for test
+test.y <- admissions$Group[test.index] #response for test #this is my old Decision
+train.x <- data.frame(cbind(admissions$GPA,admissions$GMAT))[-test.index,] #pred for train
+train.y <- admissions$Group[-test.index] #response for train this is my old De
+train.y=as.factor(train.y)
+test.y=as.factor(test.y)
+colnames(train.x)=colnames(test.x) = c("GPA", "GMAT")
+train.data <- data.frame(cbind(train.x,train.y)) #our new data that is for training
+test.data <- data.frame(cbind(test.x, test.y))
+xtabs(~ test.y, data = train.data)
+```
+
+
+
+######Step 1, numerical and graphical observations and summaries######
+```{r message=FALSE, warning=FALSE}
+str(admissions) #sec.5
+#this data contains 85 rows which represent students and 3 predictors, one which is categorical and the other 2 are quantitative. the 2 quantitative ones are GPA and GMAT that students have, and the third predictor categorical is Decision, which is the college decision for that student. there are 3 options either the student is admitted, not admitted, or border and this is based off of these two variables, obviously in real life more thought is put into the admission process(at least I hope so) but this is what was presented by this data
+dim(admissions) #sec.5
+#summary(admissions)
+summary(train.data)
+#from the summary we see that the average gpa of the data is 2.975, Gmat is 488.4 and there is 31 admit, 26 border, and 28 not admit
+#names(admissions)
+pairs(train.data)
+cor(admissions[,-3])#remove the decision predictor since it is qualitative
+cor(train.data[,-3])
+#we see that there is a very high correlation coefficient between our two predictors, so the a higher GPA leads to a higher GMAT score and vice verse
+library(ggplot2)
+ggplot(data = train.data) + geom_point(aes(GMAT, GPA, color = train.y)) + scale_color_manual(labels = c("Admit", "Not Admit","Border"), values = c("darkmagenta","black","orange")) +guides(color=guide_legend("Decision")) + ggtitle("Graph of Admissions training data") + theme(plot.title = element_text(hjust = 0.5))
+boxplot(train.data$GPA)
+boxplot(train.data$GMAT)
+boxplot(GPA~train.y, data=train.data, main="Box plot of GPA against Decisions", xlab="Class", col="turquoise", border="black", names=c("1=admit","2=notadmit","3=border"))
+boxplot(GMAT~train.y, data=train.data, main="Box plot of GMAT against Decisions", xlab="Class", col="turquoise", border="black", names=c("1=admit","2=notadmit","3=border"))
+boxplot(train.data$GMAT, main="Boxplot for GMAT(not seperated by class)", col="turquoise", border="black")
+boxplot(train.data$GPA, data=train.data, main="Boxplot for GPA(not seperated by class)", col="turquoise", border="black")
+#from this we see that those that are admitted are mostly in the higher ranges
+```
+
+
+
+
+######Step 2, Linear Discriminant Analysis######
+```{r message=FALSE, warning=FALSE}
+library(MASS)
+lda.fit<-lda(train.y~GPA+GMAT, data=train.data)
+lda.fit
+# prior probabilities of groups: we see that 37% of observations are admitted students, 32% are border, and 30% are not admitted relative to the training data
+# group means: we see that the students that are admitted have an average GPA of 3.32 and GMAT score of 519.63, the border have a GPA of 3.057 and GMAT of 431.5 and notadmit have a GPA of 2.41 and GMAT of 459.
+# coefficients of linear discriminants
+#contrasts(De) #to see how to interpret model
+#for test
+lda.fitpred <- predict(lda.fit, test.x)
+lda.fitclass <- lda.fitpred$class
+table(lda.fitclass, test.y)
+mean(lda.fitclass != test.y) #equal to the misclassification rate
+mean(lda.fitclass == test.y) #produces models accuracy on test data
+#for train
+lda.fitpred2 <- predict(lda.fit, train.x)
+lda.fitclass2 <- lda.fitpred2$class
+table(lda.fitclass2, train.y)
+mean(lda.fitclass2 != train.y) 
+mean(lda.fitclass2 == train.y) #produces models accuracy on test data
+
+#misclassification rate = (FP+FN)/total#ofobservations
+#sum(ldapred$posterior[,1]>=.5) 
+#sum(ldapred$posterior[,1]<.5) 
+#ldapred$posterior[,1]
+#plot(admissions$GPA,admissions$GMAT,col=admissions$De)
+
+library(klaR)
+par(mfrow=c(2,2))
+couleurs=c("aquamarine","lavender","white")
+#fyi, the lines are decision boundaries, regions are decision regions
+#from this we can see the decision boundaries. as we learned these decision boundaries create regions based off the data points and each region represents a class of the categorical variable. In my case, admit, border, and do not admit. We can see that there are red letters and this represents observations that are in their incorrect region. see some admits are in border and border is in admit. this is because we chose the top half, the higher scores to be admits and what not. Overall, these decision boundaries make sense in terms of the data and there are only very few variables in the wrong region
+partimat(train.y~., data = train.data, method = "lda", image.colors=couleurs, main = "Partition Plot LDA") #1=admit, 2=not admit, 3=border
+partimat(test.y~., data = test.data, method = "lda", image.colors=couleurs, main = "Partition Plot LDA")
+
+
+#confusion matrix and misclassification rates
+table(lda.fitclass, test.y)
+mean(lda.fitclass != test.y) #equal to the misclassification rate
+cat("misclassification error rate is:", mean(lda.fitclass == test.y) )
+cat("model accuracy:", mean(lda.fitclass == test.y) 
+table(lda.fitclass2, train.y)
+mean(lda.fitclass2 != train.y) #equal to the misclassification rate
+cat("misclassification error rate is:", mean(lda.fitclass2 != train.y) )
+cat("model accuracy:", mean(lda.fitclass2 == train.y) )
+#misclassification rate = (FP+FN)/total#ofobservations
+
+
+```
+
+
+
+######Quadratic Discriminant Analysis######
+```{r message=FALSE, warning=FALSE}
+qda.fit<-qda(train.y~GPA+GMAT, data=train.data)
+qda.fit
+qda.fitclass <- predict(qda.fit, test.x)$class
+table(qda.fitclass, test.y)
+mean(qda.fitclass == test.y) 
+mean(qda.fitclass != test.y) 
+#train
+qda.fitclass2 <- predict(qda.fit, train.x)$class
+table(qda.fitclass2, train.y)
+mean(qda.fitclass2 == train.y) 
+mean(qda.fitclass2 != train.y) 
+
+#for qda we get similar conclusions except that the lines are non-linear hence the name quadratic discriminant analysis, and LDA only has linear boundaries. we see that their are less red letters that would be misclassified, however there is this region in the bottom right that is all not admit, but it is important to note the what if someone had a low gpa in that range but a very high GMAT they would be not admit, but maybe border would make more sense. these are just things to think about and if I were the admissions committee would consider mroe seriousely
+partimat(train.y~., data = train.data, method = "qda", image.colors=couleurs, main = "Partition Plot QDA")
+partimat(test.y~., data = test.data, method = "qda", image.colors=couleurs, main = "Partition Plot QDA") 
+
+#confusion matrix and misclassification rates
+table(qda.fitclass, test.y)
+mean(qda.fitclass != test.y) #equal to the misclassification rate
+cat("misclassification error rate is:", mean(qda.fitclass == test.y) )
+cat("model accuracy:", mean(qda.fitclass == test.y) )
+table(qda.fitclass2, train.y)
+mean(qda.fitclass2 != train.y) #equal to the misclassification rate
+cat("misclassification error rate is:", mean(qda.fitclass2 != train.y) )
+cat("model accuracy:", mean(qda.fitclass2 == train.y) )
+#misclassification rate = (FP+FN)/total#ofobservations
+
+```
+
+
+
+
+######KNN######
+```{r message=FALSE, warning=FALSE}
+library(class)
+knnpred<-knn(train.x,test.x,train.y,k=1)
+table(knnpred,test.y)
+mean(knnpred==test.y)#the results from k=1 aren't good, since only 50% of observations are correctly predicted. 
+knnpred3<-knn(train.x,test.x,train.y,k=3)
+table(knnpred3,test.y)
+mean(knnpred3==test.y) 
+knnpred4<-knn(train.x,test.x,train.y,k=4)
+table(knnpred4,test.y)
+mean(knnpred4==test.y) 
+knnpred5<-knn(train.x,test.x,train.y,k=5)
+table(knnpred5,test.y)
+mean(knnpred5==test.y) 
+knnpred10<-knn(train.x,test.x,train.y,k=10)
+table(knnpred10,test.y)
+mean(knnpred10==test.y) 
+knnpred15<-knn(train.x,test.x,train.y,k=15)
+table(knnpred15,test.y)
+mean(knnpred15==test.y) 
+knnpred25<-knn(train.x,test.x,train.y,k=25)
+table(knnpred25,test.y)
+mean(knnpred25==test.y) 
+
+#test error rate = mean(knnpred !=test.y), use this to choose optimal one with the lowest test error rate
+
+#this is a function that goes through a lot of k values and finds all of their test error rates, from here we can print the minimum test error rate and print the k-value that produces this minimum values
+library(class)
+knn_pred_y = NULL
+error_rate = NULL
+for(i in 1:dim(test.x)[1]){
+set.seed(12)
+knn_pred_y = knn(train.x,test.x,train.y,k=i)
+error_rate[i] = mean(test.y != knn_pred_y)
+}
+min_error_rate = min(error_rate)
+print(min_error_rate)
+K = which(error_rate == min_error_rate)
+print(K)
+qplot(1:dim(test.x)[1], error_rate, xlab = "K", ylab = "Error Rate", geom=c("point", "line"))
+
+#Sensitivity = TP/(TP+FN)
+#Specificity = TN/(TN+FP)
+library(caret)
+set.seed(12)
+knnpred3<-knn(train.x,test.x,train.y,k=3) #this was the most optimal k
+table(knnpred3,test.y)
+mean(knnpred3!=test.y) 
+cat("misclassification error rate is:", mean(knnpred3!=test.y) )
+cat("model accuracy:", mean(knnpred3==test.y) )
+#this produces the sensitivity and specificity of each class
+test<-as.factor(test.y) 
+knn<-as.factor(knnpred3)
+confusionMatrix(knn,test,positive="1")
+#specificity of 1 = TNof1/TNof1+FP+FP
+#specificity of 2 = TNof2/TNof2+FP+FP
+#specificity of 3 = TNof3/TNof3+FP+FP
+
+#specificity of 1 = 1
+#specificity of 2 = 0.6
+#specificity of 3 = 0.6
+
+#sensitivity of 1 = TPof1/TPof1+FN+FN
+#sensitivity of 2 = TPof2/TPof2+FN+FN
+#sensitivity of 3 = TPof3/TPof3+FN+FN
+
+#specificity of 1 = 0.4
+#specificity of 2 = 0.6
+#specificity of 3 = 0.6
+
+#error rates
+library(class)
+M<-dim(test.x)[1]
+train.err<-rep(NA,M)
+test.err<-rep(NA,M)
+for (i in 1:M){
+  set.seed(12)
+  knn.pred=knn(train.x,test.x,train.y,k=i)
+  test.err[i]<-mean(test.y != knn.pred)
+  
+  knn.pred=knn(train.x,test.x,train.y,k=i)
+  train.err[i]<-mean(test.y != knn.pred)
+}
+ 
+df <-data.frame(c(rep("Training",M),rep("Test",M)),rep(seq(1:M),2),c(train.err,test.err))
+colnames(df)<-c("Data","K","ErrorRate")
+ 
+ggplot(data=df, aes(x=K, y=ErrorRate, group=Data, colour=Data)) +
+  geom_line() +
+  geom_point() + 
+  ggtitle("Training and Test Errors") + theme(plot.title = 
+element_text(color="black", face="bold", size=16))
+
+
+#auc 
+library(pROC)
+auc(knnpred3, as.numeric(test.y))
+
+```
+
